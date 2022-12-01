@@ -1645,7 +1645,7 @@ bool Mesh::LoadGLTF(const String& fileName, bool bBinary)
 /*----------------------------------------------------------------*/
 
 // export the mesh to the given file
-bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBinary) const
+bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBinary, bool bEmbedImages, const String& textureImageFormat) const
 {
 	TD_TIMER_STARTD();
 	const String ext(Util::getFileExt(fileName).ToLower());
@@ -1654,7 +1654,7 @@ bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBin
 		ret = SaveOBJ(fileName);
 	else
 	if (ext == _T(".gltf") || ext == _T(".glb"))
-		ret = SaveGLTF(fileName, ext == _T(".glb"));
+		ret = SaveGLTF(fileName, ext == _T(".glb"), bEmbedImages, textureImageFormat);
 	else
 		ret = SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
 	if (!ret)
@@ -1806,7 +1806,7 @@ void ExtendBufferGLTF(const T* src, size_t size, tinygltf::Buffer& dst, size_t& 
 	dst.data.resize(byte_offset + byte_length);
 	memcpy(&dst.data[byte_offset], &src[0], byte_length);
 }
-bool Mesh::SaveGLTF(const String& fileName, bool bBinary) const
+bool Mesh::SaveGLTF(const String& fileName, bool bBinary, bool bEmbedImages, const String& textureImageFormat) const
 {
 	ASSERT(!fileName.IsEmpty());
 	Util::ensureFolder(fileName);
@@ -1923,7 +1923,7 @@ bool Mesh::SaveGLTF(const String& fileName, bool bBinary) const
 		image.component = 3;
 		image.bits = 8;
 		image.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-		image.mimeType = "image/png";
+		image.mimeType = "image/" + textureImageFormat;
 		image.image.resize(mesh.textureDiffuse.size().area() * 3);
 		mesh.textureDiffuse.copyTo(cv::Mat(mesh.textureDiffuse.size(), CV_8UC3, image.image.data()));
 		gltfModel.images.emplace_back(std::move(image));
@@ -1956,18 +1956,45 @@ bool Mesh::SaveGLTF(const String& fileName, bool bBinary) const
 	struct Tools {
 		static bool WriteImageData(const std::string *basepath, const std::string *filename,
 			tinygltf::Image *image, bool embedImages, void *) {
-			ASSERT(!embedImages);
 			image->uri = Util::isFullPath(filename->c_str()) ?
 				Util::getRelativePath(*basepath, *filename) : String(*filename);
-			String basePath(*basepath);
-			return cv::imwrite(
-				Util::ensureFolderSlash(basePath) + image->uri,
-				cv::Mat(image->height, image->width, CV_8UC3, image->image.data()));
+			if(!embedImages){
+				String basePath(*basepath);
+				return cv::imwrite(
+					Util::ensureFolderSlash(basePath) + image->uri,
+					cv::Mat(image->height, image->width, CV_8UC3, image->image.data()));
+			}else{
+			    const std::string ext = tinygltf::GetFilePathExtension(*filename);
+				std::string header;
+				if (ext == "png") {
+					if ((image->bits != 8) ||
+						(image->pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)) {
+						// Unsupported pixel format
+						return false;
+					}
+					header = "data:image/png;base64,";
+				} else if (ext == "jpg") {
+					header = "data:image/jpeg;base64,";
+				}else{
+					return false;
+				}
+				std::vector<uchar> data;
+				bool ok = cv::imencode(
+					"."+ext,
+					cv::Mat(image->height, image->width, CV_8UC3, image->image.data()),
+					data
+				);
+				if(!ok || data.size()<=0) return false;
+				image->uri =
+					header +
+					tinygltf::base64_encode(&data[0], static_cast<unsigned int>(data.size()));
+				return true;
+			}
 		}
 	};
 	tinygltf::TinyGLTF gltf;
 	gltf.SetImageWriter(Tools::WriteImageData, NULL);
-	const bool bEmbedImages(false), bEmbedBuffers(true), bPrettyPrint(true);
+	const bool bEmbedBuffers(true), bPrettyPrint(true);
 	return gltf.WriteGltfSceneToFile(&gltfModel, fileName, bEmbedImages, bEmbedBuffers, bPrettyPrint, bBinary);
 } // Save
 /*----------------------------------------------------------------*/

@@ -66,6 +66,8 @@ unsigned nArchiveType;
 int nProcessPriority;
 unsigned nMaxThreads;
 String strExportType;
+bool bTextureImageEmbed;
+String strTextureImageFormat;
 String strConfigFileName;
 boost::program_options::variables_map vm;
 } // namespace OPT
@@ -118,6 +120,8 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("patch-packing-heuristic", boost::program_options::value(&OPT::nRectPackingHeuristic)->default_value(3), "specify the heuristic used when deciding where to place a new patch (0 - best fit, 3 - good speed, 100 - best speed)")
 		("empty-color", boost::program_options::value(&OPT::nColEmpty)->default_value(0x00FF7F27), "color used for faces not covered by any image")
 		("orthographic-image-resolution", boost::program_options::value(&OPT::nOrthoMapResolution)->default_value(0), "orthographic image resolution to be generated from the textured mesh - the mesh is expected to be already geo-referenced or at least properly oriented (0 - disabled)")
+		("texture-image-embed", boost::program_options::value(&OPT::bTextureImageEmbed)->default_value(false), "embed texture image to glb/gltf")
+		("texture-image-format", boost::program_options::value<std::string>(&OPT::strTextureImageFormat), "texture image format png or jpeg, for glb/gltf")
 		;
 
 	// hidden options, allowed both on command line and
@@ -182,6 +186,13 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		OPT::strExportType =  _T(".gltf");
 	else
 		OPT::strExportType =  _T(".ply");
+	if (OPT::strTextureImageFormat.IsEmpty())
+		OPT::strTextureImageFormat = "png";
+	if (OPT::strTextureImageFormat == "png" || OPT::strTextureImageFormat == "jpeg"){
+		// OK
+	}else{
+		return false;
+	}
 
 	// initialize optional options
 	Util::ensureValidPath(OPT::strOutputFileName);
@@ -307,7 +318,8 @@ int main(int argc, LPCTSTR* argv)
 
 	// save the final mesh
 	scene.Save(baseFileName+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
-	scene.mesh.Save(baseFileName+OPT::strExportType);
+	const bool bBinary = true;
+	scene.mesh.Save(baseFileName+OPT::strExportType, cList<String>(), bBinary, OPT::bTextureImageEmbed, OPT::strTextureImageFormat);
 	#if TD_VERBOSE != TD_VERBOSE_OFF
 	if (VERBOSITY_LEVEL > 2)
 		scene.ExportCamerasMLP(baseFileName+_T(".mlp"), baseFileName+OPT::strExportType);

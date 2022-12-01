@@ -217,7 +217,7 @@ public:
 
 	// file IO
 	bool Load(const String& fileName);
-	bool Save(const String& fileName, const cList<String>& comments=cList<String>(), bool bBinary=true) const;
+	bool Save(const String& fileName, const cList<String>& comments=cList<String>(), bool bBinary=true, bool bEmbedImages=false, const String& textureImageFormat="png") const;
 	bool Save(const FacesChunkArr&, const String& fileName, const cList<String>& comments=cList<String>(), bool bBinary=true) const;
 	static bool Save(const VertexArr& vertices, const String& fileName, bool bBinary=true);
 
@@ -232,7 +232,7 @@ protected:
 
 	bool SavePLY(const String& fileName, const cList<String>& comments=cList<String>(), bool bBinary=true) const;
 	bool SaveOBJ(const String& fileName) const;
-	bool SaveGLTF(const String& fileName, bool bBinary=true) const;
+	bool SaveGLTF(const String& fileName, bool bBinary=true, bool bEmbedImages=false, const String& textureImageFormat="png") const;
 
 	#ifdef _USE_CUDA
 	static bool InitKernels(int device=-1);

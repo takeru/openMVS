@@ -60,6 +60,7 @@ float fSampleMesh;
 float fBorderROI;
 bool bCrop2ROI;
 int nEstimateROI;
+float fROIScale;
 int nFusionMode;
 int thFilterPointCloud;
 int nExportNumViews;
@@ -144,6 +145,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
         ("roi-border", boost::program_options::value(&OPT::fBorderROI)->default_value(0), "add a border to the region-of-interest when cropping the scene (0 - disabled, >0 - percentage, <0 - absolute)")
         ("estimate-roi", boost::program_options::value(&OPT::nEstimateROI)->default_value(2), "estimate and set region-of-interest (0 - disabled, 1 - enabled, 2 - adaptive)")
         ("crop-to-roi", boost::program_options::value(&OPT::bCrop2ROI)->default_value(true), "crop scene using the region-of-interest")
+        ("roi-scale", boost::program_options::value(&OPT::fROIScale)->default_value(1.1f), "EstimateROI scale (default=1.1f)")
         ;
 
 	// hidden options, allowed both on command line and
@@ -300,7 +302,7 @@ int main(int argc, LPCTSTR* argv)
 		return EXIT_SUCCESS;
 	}
 	if (!scene.IsBounded())
-		scene.EstimateROI(OPT::nEstimateROI, 1.1f);
+		scene.EstimateROI(OPT::nEstimateROI, OPT::fROIScale);
 	if (!OPT::strExportROIFileName.empty() && scene.IsBounded()) {
 		std::ofstream fs(MAKE_PATH_SAFE(OPT::strExportROIFileName));
 		if (!fs)
